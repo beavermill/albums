@@ -166,7 +166,7 @@
     }
     const code = await playAlbum(token, { uri: found.uri });
     if (code === 204) status("\u25B6 Speelt nu: " + found.name);
-    else if (code === 404) { status("Geen actief Spotify-apparaat — ik open het album."); openInSpotify(found); }
+    else if (code === "geen-apparaat") { status("Open eerst de Spotify-app (speel kort iets af) — dan speelt dit vanzelf. Ik open nu het album."); openInSpotify(found); }
     else if (code === 403) { status("Afspelen vereist Premium — ik open het album."); openInSpotify(found); }
     else { status("Kon niet afspelen — ik open het album."); openInSpotify(found); }
   });
@@ -274,14 +274,30 @@
     return out;
   }
 
-  async function playAlbum(token, album) {
+  async function getDevices(token) {
     try {
-      const r = await fetch("https://api.spotify.com/v1/me/player/play", {
+      const r = await fetch("https://api.spotify.com/v1/me/player/devices",
+        { headers: { Authorization: "Bearer " + token } });
+      if (!r.ok) return [];
+      const data = await r.json();
+      return data.devices || [];
+    } catch (e) { return []; }
+  }
+
+  async function playAlbum(token, album) {
+    // Zoek een beschikbaar apparaat. Geen apparaat = niets om naar te sturen.
+    const devices = await getDevices(token);
+    if (!devices.length) return "geen-apparaat";
+    // Voorkeur: het actieve apparaat; anders het eerste beschikbare (wordt dan gewekt).
+    const dev = devices.find(d => d.is_active) || devices[0];
+    try {
+      const r = await fetch(
+        "https://api.spotify.com/v1/me/player/play?device_id=" + encodeURIComponent(dev.id), {
         method: "PUT",
         headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
         body: JSON.stringify({ context_uri: album.uri })
       });
-      return r.status; // 204 = ok; 404 = geen apparaat; 403 = geen Premium/restrictie
+      return r.status; // 204 = ok; 403 = geen Premium/restrictie
     } catch (e) { return -1; }
   }
 
@@ -313,8 +329,8 @@
     const album = albums[trekIndex(albums.length)];
     toonAlbumKeuze(album);
     const code = await playAlbum(token, album);
-    if (code === 204) { status("▶ Speelt nu af op je actieve Spotify-apparaat."); }
-    else if (code === 404) { status("Geen actief Spotify-apparaat — ik open het album in Spotify."); openInSpotify(album); }
+    if (code === 204) { status("\u25B6 Speelt nu af op je Spotify-apparaat."); }
+    else if (code === "geen-apparaat") { status("Open eerst de Spotify-app (speel kort iets af) — dan speelt dit vanzelf. Ik open nu het album."); openInSpotify(album); }
     else if (code === 403) { status("Afspelen via API vereist Premium — ik open het album in Spotify."); openInSpotify(album); }
     else { status("Kon niet automatisch afspelen — ik open het album in Spotify."); openInSpotify(album); }
   }
