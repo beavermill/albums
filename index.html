@@ -86,12 +86,6 @@
     </button></div>
     <div class="status" id="status"></div>
 
-    <div class="apparaat">
-      Afspeelapparaat: <span id="apparaatNaam">automatisch</span>
-      <button id="kiesApparaatKnop" class="mini">wijzig</button>
-    </div>
-    <div class="apparaat-lijst" id="apparaatLijst"></div>
-
     <div class="setup" id="setup"></div>
 
     <div class="bron">1000 albums &middot; willekeur via crypto.getRandomValues</div>
@@ -119,9 +113,6 @@
   const mijnPick = document.getElementById("mijnPick");
   const statusEl = document.getElementById("status");
   const setupEl = document.getElementById("setup");
-  const apparaatNaam = document.getElementById("apparaatNaam");
-  const kiesApparaatKnop = document.getElementById("kiesApparaatKnop");
-  const apparaatLijst = document.getElementById("apparaatLijst");
 
   let huidig = null;
 
@@ -181,8 +172,8 @@
     }
     const res = await playAlbum(token, { uri: found.uri });
     if (res.status === 204) status("\u25B6 Speelt nu: " + found.name + " — op " + (res.device || "apparaat"));
-    else if (res.status === "geen-apparaat") { status("Open eerst de Spotify-app (speel kort iets af) — dan speelt dit vanzelf. Ik open nu het album."); openInSpotify(found); }
-    else if (res.status === "voorkeur-weg") { status("Je gekozen apparaat (" + (res.device || "?") + ") is nu niet beschikbaar. Open daar de Spotify-app. Ik open nu het album."); openInSpotify(found); }
+    else if (res.status === "geen-apparaat") { status("Open de Spotify-app op dit toestel (op iPhone mag een webpagina niet zelf afspelen). Ik open nu het album — tik daar op play."); openInSpotify(found); }
+    else if (res.status === "verkeerd-toestel") { status("Op dit toestel draait geen Spotify-app. Ik open het album hier — tik op play. (Ik stuur het bewust niet naar een ander toestel.)"); openInSpotify(found); }
     else if (res.status === 403) { status("Afspelen vereist Premium — ik open het album."); openInSpotify(found); }
     else { status("Kon niet afspelen — ik open het album."); openInSpotify(found); }
   });
@@ -311,22 +302,16 @@
     } catch (e) {}
   }
 
+  function opMobiel() {
+    return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  }
   function kiesApparaat(devices) {
-    // 1) Heb je zelf een apparaat gekozen? Match op NAAM (de ID wisselt per keer).
-    const voorkeur = localStorage.getItem("sp_pref_device_name");
-    if (voorkeur) {
-      const m = devices.find(d => d.name === voorkeur);
-      return m || null;  // null = voorkeur staat nu niet aan
-    }
-    // 2) Anders automatisch: het apparaat dat past bij waar je de knop indrukt.
-    const opMobiel = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    const gewenstType = opMobiel ? "Smartphone" : "Computer";
-    return (
-      devices.find(d => d.type === gewenstType && d.is_active) ||
-      devices.find(d => d.type === gewenstType) ||
-      devices.find(d => d.is_active) ||
-      devices[0]
-    );
+    // Kies het apparaat dat past bij het toestel waarop je nu de knop indrukt:
+    // op telefoon -> Spotify-app op je telefoon; op computer -> de desktop-app.
+    // Geen passend toestel beschikbaar? Geef null terug (dan NIET naar een ander toestel sturen).
+    const gewenstType = opMobiel() ? "Smartphone" : "Computer";
+    const passend = devices.filter(d => d.type === gewenstType);
+    return passend.find(d => d.is_active) || passend[0] || null;
   }
 
   async function playAlbum(token, album) {
@@ -335,8 +320,8 @@
     if (!devices.length) return { status: "geen-apparaat" };
     const dev = kiesApparaat(devices);
     if (!dev) {
-      // Je voorkeursapparaat staat nu niet in de lijst (Spotify-app dicht).
-      return { status: "voorkeur-weg", device: localStorage.getItem("sp_pref_device_name") };
+      // Wel apparaten, maar niet op het toestel waarop je werkt -> niet naar elders sturen.
+      return { status: "verkeerd-toestel" };
     }
     // Niet-actief apparaat eerst wekken, dan even wachten.
     if (!dev.is_active) { await activateDevice(token, dev.id); await new Promise(r => setTimeout(r, 500)); }
@@ -380,8 +365,8 @@
     toonAlbumKeuze(album);
     const res = await playAlbum(token, album);
     if (res.status === 204) { status("\u25B6 Speelt nu af op " + (res.device || "je Spotify-apparaat") + "."); }
-    else if (res.status === "geen-apparaat") { status("Open eerst de Spotify-app (speel kort iets af) — dan speelt dit vanzelf. Ik open nu het album."); openInSpotify(album); }
-    else if (res.status === "voorkeur-weg") { status("Je gekozen apparaat (" + (res.device || "?") + ") is nu niet beschikbaar. Open daar de Spotify-app. Ik open nu het album."); openInSpotify(album); }
+    else if (res.status === "geen-apparaat") { status("Open de Spotify-app op dit toestel (op iPhone mag een webpagina niet zelf afspelen). Ik open nu het album — tik daar op play."); openInSpotify(album); }
+    else if (res.status === "verkeerd-toestel") { status("Op dit toestel draait geen Spotify-app. Ik open het album hier — tik op play. (Ik stuur het bewust niet naar een ander toestel.)"); openInSpotify(album); }
     else if (res.status === 403) { status("Afspelen via API vereist Premium — ik open het album in Spotify."); openInSpotify(album); }
     else { status("Kon niet automatisch afspelen — ik open het album in Spotify."); openInSpotify(album); }
   }
@@ -405,40 +390,6 @@
     if (!CLIENT_ID) { toonSetup(); return; }
     if (ingelogd) speelWillekeurig(); else login();
   });
-
-  // ---- Afspeelapparaat kiezen en onthouden (op naam) ----
-  function updateApparaatLabel() {
-    const naam = localStorage.getItem("sp_pref_device_name");
-    apparaatNaam.textContent = naam ? naam : "automatisch (toestel waarop je drukt)";
-  }
-  async function toonApparaten() {
-    if (!CLIENT_ID) { toonSetup(); return; }
-    const token = await getValidToken();
-    if (!token) { login(); return; }
-    apparaatLijst.textContent = "Apparaten ophalen…";
-    const devs = await getDevices(token);
-    apparaatLijst.innerHTML = "";
-    if (!devs.length) {
-      apparaatLijst.textContent = "Geen apparaten gevonden. Open de Spotify-app op het toestel waarop je wilt afspelen (speel kort iets af) en tik nogmaals op ‘wijzig’.";
-      return;
-    }
-    const maakKnop = (label, naam) => {
-      const b = document.createElement("button");
-      b.className = "mini"; b.textContent = label;
-      b.addEventListener("click", () => {
-        if (naam === null) { localStorage.removeItem("sp_pref_device_name"); }
-        else { localStorage.setItem("sp_pref_device_name", naam); }
-        updateApparaatLabel(); apparaatLijst.innerHTML = "";
-      });
-      return b;
-    };
-    apparaatLijst.appendChild(maakKnop("Automatisch", null));
-    devs.forEach(d => {
-      apparaatLijst.appendChild(maakKnop(d.name + " · " + d.type + (d.is_active ? " ●" : ""), d.name));
-    });
-  }
-  kiesApparaatKnop.addEventListener("click", toonApparaten);
-  updateApparaatLabel();
 
   // bij laden: eventuele redirect afhandelen + UI bijwerken
   handleRedirect();
