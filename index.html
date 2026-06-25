@@ -131,8 +131,47 @@
     spotifyBtn.disabled = false; appleBtn.disabled = false;
   }
   function zoekterm() { return (huidig.a + " " + huidig.t).trim(); }
-  spotifyBtn.addEventListener("click", () => { if (huidig)
-    window.open("https://open.spotify.com/search/" + encodeURIComponent(zoekterm()), "_blank", "noopener"); });
+  // Zoek het album op via de Spotify-API om de afspeel-URI te vinden.
+  async function zoekAlbumUri(token, artiest, titel) {
+    const queries = ['album:"' + titel + '" artist:"' + artiest + '"', artiest + " " + titel];
+    for (const q of queries) {
+      const url = "https://api.spotify.com/v1/search?type=album&limit=1&q=" + encodeURIComponent(q);
+      const r = await fetch(url, { headers: { Authorization: "Bearer " + token } });
+      if (r.status === 401) throw new Error("token-verlopen");
+      if (!r.ok) continue;
+      const data = await r.json();
+      const it = data.albums && data.albums.items && data.albums.items[0];
+      if (it) return it;
+    }
+    return null;
+  }
+  // Spotify-knop: indien verbonden -> album opzoeken en automatisch afspelen.
+  // Niet verbonden, niet gevonden, geen Premium of geen apparaat -> album/zoekopdracht openen.
+  spotifyBtn.addEventListener("click", async () => {
+    if (!huidig) return;
+    const token = CLIENT_ID ? await getValidToken() : null;
+    if (!token) {
+      if (CLIENT_ID) status("Verbind eerst met Spotify (groene knop) om automatisch af te spelen.");
+      window.open("https://open.spotify.com/search/" + encodeURIComponent(zoekterm()), "_blank", "noopener");
+      return;
+    }
+    status("Album zoeken op Spotify…");
+    let found;
+    try { found = await zoekAlbumUri(token, huidig.a, huidig.t); }
+    catch (e) { if (e.message === "token-verlopen") { login(); return; } found = null; }
+    if (!found) {
+      status("Niet gevonden op Spotify — ik open een zoekopdracht.");
+      window.open("https://open.spotify.com/search/" + encodeURIComponent(zoekterm()), "_blank", "noopener");
+      return;
+    }
+    const code = await playAlbum(token, { uri: found.uri });
+    if (code === 204) status("\u25B6 Speelt nu: " + found.name);
+    else if (code === 404) { status("Geen actief Spotify-apparaat — ik open het album."); openInSpotify(found); }
+    else if (code === 403) { status("Afspelen vereist Premium — ik open het album."); openInSpotify(found); }
+    else { status("Kon niet afspelen — ik open het album."); openInSpotify(found); }
+  });
+  // Apple Music kan vanuit een webpagina niet automatisch afspelen (vereist betaald
+  // MusicKit). We openen daarom het album in de Apple Music-app; daar tik je op play.
   appleBtn.addEventListener("click", () => { if (huidig)
     window.open("https://music.apple.com/search?term=" + encodeURIComponent(zoekterm()), "_blank", "noopener"); });
   knop.addEventListener("click", toon);
