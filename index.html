@@ -49,6 +49,12 @@
   .setup code { background:#1c1c22; padding:.1rem .35rem; border-radius:5px; color:#ffd23f; word-break:break-all; }
   .setup ol { margin:.5rem 0 0; padding-left:1.2rem; } .setup li { margin-bottom:.4rem; }
   .bron { margin-top:1.8rem; font-size:.75rem; color:#555; }
+  .apparaat { margin-top:.9rem; font-size:.82rem; color:#9a9aa3; }
+  .apparaat #apparaatNaam { color:#cfcfd6; }
+  .mini { background:#33333c; color:#dcdce2; padding:.25rem .7rem; font-size:.78rem; font-weight:500;
+    border-radius:999px; margin:.2rem; }
+  .mini:hover { background:#41414c; }
+  .apparaat-lijst { margin-top:.6rem; display:flex; flex-wrap:wrap; justify-content:center; gap:.1rem; font-size:.8rem; color:#9a9aa3; }
 </style>
 </head>
 <body>
@@ -80,6 +86,12 @@
     </button></div>
     <div class="status" id="status"></div>
 
+    <div class="apparaat">
+      Afspeelapparaat: <span id="apparaatNaam">automatisch</span>
+      <button id="kiesApparaatKnop" class="mini">wijzig</button>
+    </div>
+    <div class="apparaat-lijst" id="apparaatLijst"></div>
+
     <div class="setup" id="setup"></div>
 
     <div class="bron">1000 albums &middot; willekeur via crypto.getRandomValues</div>
@@ -107,6 +119,9 @@
   const mijnPick = document.getElementById("mijnPick");
   const statusEl = document.getElementById("status");
   const setupEl = document.getElementById("setup");
+  const apparaatNaam = document.getElementById("apparaatNaam");
+  const kiesApparaatKnop = document.getElementById("kiesApparaatKnop");
+  const apparaatLijst = document.getElementById("apparaatLijst");
 
   let huidig = null;
 
@@ -167,6 +182,7 @@
     const res = await playAlbum(token, { uri: found.uri });
     if (res.status === 204) status("\u25B6 Speelt nu: " + found.name + " — op " + (res.device || "apparaat"));
     else if (res.status === "geen-apparaat") { status("Open eerst de Spotify-app (speel kort iets af) — dan speelt dit vanzelf. Ik open nu het album."); openInSpotify(found); }
+    else if (res.status === "voorkeur-weg") { status("Je gekozen apparaat (" + (res.device || "?") + ") is nu niet beschikbaar. Open daar de Spotify-app. Ik open nu het album."); openInSpotify(found); }
     else if (res.status === 403) { status("Afspelen vereist Premium — ik open het album."); openInSpotify(found); }
     else { status("Kon niet afspelen — ik open het album."); openInSpotify(found); }
   });
@@ -296,8 +312,13 @@
   }
 
   function kiesApparaat(devices) {
-    // Kies het Spotify-apparaat dat past bij het toestel waarop je nu de knop indrukt:
-    // op telefoon -> de Spotify-app op je telefoon; op computer -> de desktop-app.
+    // 1) Heb je zelf een apparaat gekozen? Match op NAAM (de ID wisselt per keer).
+    const voorkeur = localStorage.getItem("sp_pref_device_name");
+    if (voorkeur) {
+      const m = devices.find(d => d.name === voorkeur);
+      return m || null;  // null = voorkeur staat nu niet aan
+    }
+    // 2) Anders automatisch: het apparaat dat past bij waar je de knop indrukt.
     const opMobiel = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     const gewenstType = opMobiel ? "Smartphone" : "Computer";
     return (
@@ -312,8 +333,11 @@
     // Zoek een beschikbaar apparaat. Geen apparaat = niets om naar te sturen.
     const devices = await getDevices(token);
     if (!devices.length) return { status: "geen-apparaat" };
-    // Kies het apparaat dat past bij waar je de knop indrukt.
     const dev = kiesApparaat(devices);
+    if (!dev) {
+      // Je voorkeursapparaat staat nu niet in de lijst (Spotify-app dicht).
+      return { status: "voorkeur-weg", device: localStorage.getItem("sp_pref_device_name") };
+    }
     // Niet-actief apparaat eerst wekken, dan even wachten.
     if (!dev.is_active) { await activateDevice(token, dev.id); await new Promise(r => setTimeout(r, 500)); }
     try {
@@ -357,6 +381,7 @@
     const res = await playAlbum(token, album);
     if (res.status === 204) { status("\u25B6 Speelt nu af op " + (res.device || "je Spotify-apparaat") + "."); }
     else if (res.status === "geen-apparaat") { status("Open eerst de Spotify-app (speel kort iets af) — dan speelt dit vanzelf. Ik open nu het album."); openInSpotify(album); }
+    else if (res.status === "voorkeur-weg") { status("Je gekozen apparaat (" + (res.device || "?") + ") is nu niet beschikbaar. Open daar de Spotify-app. Ik open nu het album."); openInSpotify(album); }
     else if (res.status === 403) { status("Afspelen via API vereist Premium — ik open het album in Spotify."); openInSpotify(album); }
     else { status("Kon niet automatisch afspelen — ik open het album in Spotify."); openInSpotify(album); }
   }
@@ -380,6 +405,40 @@
     if (!CLIENT_ID) { toonSetup(); return; }
     if (ingelogd) speelWillekeurig(); else login();
   });
+
+  // ---- Afspeelapparaat kiezen en onthouden (op naam) ----
+  function updateApparaatLabel() {
+    const naam = localStorage.getItem("sp_pref_device_name");
+    apparaatNaam.textContent = naam ? naam : "automatisch (toestel waarop je drukt)";
+  }
+  async function toonApparaten() {
+    if (!CLIENT_ID) { toonSetup(); return; }
+    const token = await getValidToken();
+    if (!token) { login(); return; }
+    apparaatLijst.textContent = "Apparaten ophalen…";
+    const devs = await getDevices(token);
+    apparaatLijst.innerHTML = "";
+    if (!devs.length) {
+      apparaatLijst.textContent = "Geen apparaten gevonden. Open de Spotify-app op het toestel waarop je wilt afspelen (speel kort iets af) en tik nogmaals op ‘wijzig’.";
+      return;
+    }
+    const maakKnop = (label, naam) => {
+      const b = document.createElement("button");
+      b.className = "mini"; b.textContent = label;
+      b.addEventListener("click", () => {
+        if (naam === null) { localStorage.removeItem("sp_pref_device_name"); }
+        else { localStorage.setItem("sp_pref_device_name", naam); }
+        updateApparaatLabel(); apparaatLijst.innerHTML = "";
+      });
+      return b;
+    };
+    apparaatLijst.appendChild(maakKnop("Automatisch", null));
+    devs.forEach(d => {
+      apparaatLijst.appendChild(maakKnop(d.name + " · " + d.type + (d.is_active ? " ●" : ""), d.name));
+    });
+  }
+  kiesApparaatKnop.addEventListener("click", toonApparaten);
+  updateApparaatLabel();
 
   // bij laden: eventuele redirect afhandelen + UI bijwerken
   handleRedirect();
