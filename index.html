@@ -84,6 +84,18 @@
       <svg viewBox="0 0 24 24"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.5 17.3c-.22.36-.68.47-1.03.25-2.82-1.72-6.37-2.11-10.55-1.16-.4.09-.8-.16-.89-.56-.09-.4.16-.8.56-.89 4.57-1.04 8.5-.59 11.66 1.33.36.22.47.68.25 1.03zm1.47-3.27c-.28.45-.87.59-1.32.31-3.23-1.98-8.15-2.56-11.97-1.4-.51.15-1.04-.13-1.2-.64-.15-.51.13-1.04.64-1.2 4.37-1.32 9.79-.68 13.54 1.61.45.28.59.87.31 1.32zm.13-3.4C15.04 8.3 8.99 8.09 5.46 9.16c-.61.18-1.25-.16-1.43-.77-.18-.61.16-1.25.77-1.43 4.05-1.23 10.73-.99 14.96 1.52.55.32.73 1.03.4 1.58-.32.54-1.03.72-1.57.4z"/></svg>
       <span id="mijnLabel">Verbind met Spotify</span>
     </button></div>
+
+    <div class="diensten" id="mijnDiensten" style="display:none">
+      <button class="dienst spotify" id="mijnSpotify">
+        <svg viewBox="0 0 24 24"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.5 17.3c-.22.36-.68.47-1.03.25-2.82-1.72-6.37-2.11-10.55-1.16-.4.09-.8-.16-.89-.56-.09-.4.16-.8.56-.89 4.57-1.04 8.5-.59 11.66 1.33.36.22.47.68.25 1.03zm1.47-3.27c-.28.45-.87.59-1.32.31-3.23-1.98-8.15-2.56-11.97-1.4-.51.15-1.04-.13-1.2-.64-.15-.51.13-1.04.64-1.2 4.37-1.32 9.79-.68 13.54 1.61.45.28.59.87.31 1.32zm.13-3.4C15.04 8.3 8.99 8.09 5.46 9.16c-.61.18-1.25-.16-1.43-.77-.18-.61.16-1.25.77-1.43 4.05-1.23 10.73-.99 14.96 1.52.55.32.73 1.03.4 1.58-.32.54-1.03.72-1.57.4z"/></svg>
+        Spotify
+      </button>
+      <button class="dienst apple" id="mijnApple">
+        <svg viewBox="0 0 24 24"><path d="M23.99 6.12c0-.42-.03-.84-.12-1.26-.18-.84-.66-1.5-1.38-1.98-.36-.24-.78-.36-1.2-.48-.42-.06-.84-.12-1.26-.12-.12 0-.18-.06-.18-.18H5.33c-.12 0-.18.06-.18.18-.6 0-1.2.06-1.8.18-.84.18-1.5.66-1.98 1.38-.24.36-.36.78-.48 1.2-.06.42-.12.84-.12 1.26v11.76c0 .42.03.84.12 1.26.18.84.66 1.5 1.38 1.98.36.24.78.36 1.2.48.42.06.84.12 1.26.12.12 0 .18.06.18.18h13.34c.12 0 .18-.06.18-.18.6 0 1.2-.06 1.8-.18.84-.18 1.5-.66 1.98-1.38.24-.36.36-.78.48-1.2.06-.42.12-.84.12-1.26V6.12zM17.7 9.9v5.46c0 .36-.06.72-.24 1.02-.3.54-.78.84-1.38.96-.36.06-.72.06-1.08 0-.66-.12-1.14-.6-1.26-1.26-.12-.78.3-1.5 1.02-1.74.36-.12.72-.18 1.08-.24.36-.06.54-.24.54-.6V9.36c0-.18-.12-.3-.3-.24l-4.5.9c-.18.06-.24.18-.24.36v6.3c0 .36-.06.72-.24 1.02-.3.54-.78.84-1.38.96-.36.06-.72.06-1.08 0-.66-.12-1.14-.6-1.26-1.26-.12-.72.3-1.44 1.02-1.74.36-.12.72-.18 1.08-.24.36-.06.54-.24.54-.6V7.5c0-.42.24-.66.6-.72l5.46-1.08c.42-.06.78.18.78.66l.06 3.54z"/></svg>
+        Apple Music
+      </button>
+    </div>
+
     <div class="status" id="status"></div>
 
     <div class="setup" id="setup"></div>
@@ -111,6 +123,9 @@
   const mijnKnop = document.getElementById("mijnKnop");
   const mijnLabel = document.getElementById("mijnLabel");
   const mijnPick = document.getElementById("mijnPick");
+  const mijnDiensten = document.getElementById("mijnDiensten");
+  const mijnSpotify = document.getElementById("mijnSpotify");
+  const mijnApple = document.getElementById("mijnApple");
   const statusEl = document.getElementById("status");
   const setupEl = document.getElementById("setup");
 
@@ -264,7 +279,7 @@
 
   function updateAuthUI() {
     const ingelogd = !!localStorage.getItem("sp_access") || !!localStorage.getItem("sp_refresh");
-    mijnLabel.textContent = ingelogd ? "Speel willekeurig album" : "Verbind met Spotify";
+    mijnLabel.textContent = ingelogd ? "Kies willekeurig album" : "Verbind met Spotify";
   }
 
   async function fetchAllAlbums(token) {
@@ -349,10 +364,18 @@
     window.open(web, "_blank", "noopener");
   }
 
-  async function speelWillekeurig() {
+  let huidigMijn = null;
+  function zoektermMijn() {
+    const artiest = (huidigMijn.artists && huidigMijn.artists[0] && huidigMijn.artists[0].name) || "";
+    return (artiest + " " + huidigMijn.name).trim();
+  }
+
+  async function kiesUitBibliotheek() {
     if (!CLIENT_ID) { toonSetup(); return; }
     const token = await getValidToken();
     if (!token) { login(); return; }
+    mijnDiensten.style.display = "none";
+    huidigMijn = null;
     status("Bibliotheek ophalen…");
     let albums;
     try { albums = await fetchAllAlbums(token); }
@@ -361,15 +384,15 @@
       status("Kon bibliotheek niet ophalen: " + e.message); return;
     }
     if (!albums.length) { status("Geen opgeslagen albums in je bibliotheek gevonden."); return; }
-    const album = albums[trekIndex(albums.length)];
-    toonAlbumKeuze(album);
-    const res = await playAlbum(token, album);
-    if (res.status === 204) { status("\u25B6 Speelt nu af op " + (res.device || "je Spotify-apparaat") + "."); }
-    else if (res.status === "geen-apparaat") { status("Open de Spotify-app op dit toestel (op iPhone mag een webpagina niet zelf afspelen). Ik open nu het album — tik daar op play."); openInSpotify(album); }
-    else if (res.status === "verkeerd-toestel") { status("Op dit toestel draait geen Spotify-app. Ik open het album hier — tik op play. (Ik stuur het bewust niet naar een ander toestel.)"); openInSpotify(album); }
-    else if (res.status === 403) { status("Afspelen via API vereist Premium — ik open het album in Spotify."); openInSpotify(album); }
-    else { status("Kon niet automatisch afspelen — ik open het album in Spotify."); openInSpotify(album); }
+    huidigMijn = albums[trekIndex(albums.length)];
+    toonAlbumKeuze(huidigMijn);
+    mijnDiensten.style.display = "flex";
+    status("Kies waar je 'm wilt openen.");
   }
+
+  mijnSpotify.addEventListener("click", () => { if (huidigMijn) openInSpotify(huidigMijn); });
+  mijnApple.addEventListener("click", () => { if (huidigMijn)
+    window.open("https://music.apple.com/search?term=" + encodeURIComponent(zoektermMijn()), "_blank", "noopener"); });
 
   function toonSetup() {
     setupEl.style.display = "block";
@@ -388,7 +411,7 @@
   mijnKnop.addEventListener("click", () => {
     const ingelogd = !!localStorage.getItem("sp_access") || !!localStorage.getItem("sp_refresh");
     if (!CLIENT_ID) { toonSetup(); return; }
-    if (ingelogd) speelWillekeurig(); else login();
+    if (ingelogd) kiesUitBibliotheek(); else login();
   });
 
   // bij laden: eventuele redirect afhandelen + UI bijwerken
