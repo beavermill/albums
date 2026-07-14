@@ -29,3 +29,4 @@ There's no dev server or tooling. Open `index.html` directly in a browser, or se
 - Identifiers, comments, and user-facing copy are in Dutch — match this when adding code or strings.
 - No frameworks, bundlers, or external dependencies are used; keep it a dependency-free single file.
 - Failure paths degrade to opening a search/album URL in a new tab rather than showing a dead end — follow this pattern for new integrations.
+- The `#versie` span in the `.bron` footer shows a manually-maintained "YYYY-MM-DD HH:MM" timestamp (no build step to generate it automatically) — bump it to the current date/time whenever `index.html` changes.
