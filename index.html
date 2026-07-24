@@ -42,6 +42,7 @@
     display:inline-flex; align-items:center; gap:.55rem; }
   .grote-klassiek:hover { background:#ff4e64; }
   .grote-klassiek svg { width:1.2em; height:1.2em; fill:#fff; }
+  #klassiekOpen { margin-top:1.4rem; }
   .mijn-pick { min-height:1.6rem; font-size:1.15rem; color:#fff; margin-bottom:.4rem; }
   .mijn-pick .ttl { font-weight:700; }
   .status { min-height:1.3rem; font-size:.9rem; color:#9a9aa3; margin-top:.9rem; }
@@ -103,6 +104,7 @@
 
     <hr class="scheiding">
     <div class="mijn-kop klassiek-kop">Of: willekeurig uit de Apple Classical Top 100</div>
+    <div class="rang" id="klassiekRang"></div>
     <div class="mijn-pick" id="klassiekPick"></div>
     <div><button class="grote-klassiek" id="klassiekKnop">
       <svg viewBox="0 0 24 24"><path d="M23.99 6.12c0-.42-.03-.84-.12-1.26-.18-.84-.66-1.5-1.38-1.98-.36-.24-.78-.36-1.2-.48-.42-.06-.84-.12-1.26-.12-.12 0-.18-.06-.18-.18H5.33c-.12 0-.18.06-.18.18-.6 0-1.2.06-1.8.18-.84.18-1.5.66-1.98 1.38-.24.36-.36.78-.48 1.2-.06.42-.12.84-.12 1.26v11.76c0 .42.03.84.12 1.26.18.84.66 1.5 1.38 1.98.36.24.78.36 1.2.48.42.06.84.12 1.26.12.12 0 .18.06.18.18h13.34c.12 0 .18-.06.18-.18.6 0 1.2-.06 1.8-.18.84-.18 1.5-.66 1.98-1.38.24-.36.36-.78.48-1.2.06-.42.12-.84.12-1.26V6.12zM17.7 9.9v5.46c0 .36-.06.72-.24 1.02-.3.54-.78.84-1.38.96-.36.06-.72.06-1.08 0-.66-.12-1.14-.6-1.26-1.26-.12-.78.3-1.5 1.02-1.74.36-.12.72-.18 1.08-.24.36-.06.54-.24.54-.6V9.36c0-.18-.12-.3-.3-.24l-4.5.9c-.18.06-.24.18-.24.36v6.3c0 .36-.06.72-.24 1.02-.3.54-.78.84-1.38.96-.36.06-.72.06-1.08 0-.66-.12-1.14-.6-1.26-1.26-.12-.72.3-1.44 1.02-1.74.36-.12.72-.18 1.08-.24.36-.06.54-.24.54-.6V7.5c0-.42.24-.66.6-.72l5.46-1.08c.42-.06.78.18.78.66l.06 3.54z"/></svg>
@@ -117,7 +119,7 @@
 
     <div class="setup" id="setup"></div>
 
-    <div class="bron">1000 albums &middot; willekeur via crypto.getRandomValues &middot; v<span id="versie">2026-07-24 13:33</span></div>
+    <div class="bron">1000 albums &middot; willekeur via crypto.getRandomValues &middot; v<span id="versie">2026-07-24 16:39</span></div>
   </div>
 
 <script>
@@ -145,6 +147,7 @@
   const mijnApple = document.getElementById("mijnApple");
   const klassiekKnop = document.getElementById("klassiekKnop");
   const klassiekPick = document.getElementById("klassiekPick");
+  const klassiekRang = document.getElementById("klassiekRang");
   const klassiekOpen = document.getElementById("klassiekOpen");
   const statusEl = document.getElementById("status");
   const setupEl = document.getElementById("setup");
@@ -484,12 +487,15 @@
 
   async function trekKlassiekAlbum() {
     klassiekOpen.style.display = "none";
+    klassiekRang.textContent = "";
     huidigKlassiek = null;
     status("Klassieke Top 100 ophalen…");
     let albums;
     try { albums = await haalKlassiekeTop100(); }
     catch (e) { status("Kon de Klassieke Top 100 niet ophalen: " + e.message); return; }
-    huidigKlassiek = albums[trekGewogenIndex(albums, (album) => album.id, "klassiek_gewichten")];
+    const i = trekGewogenIndex(albums, (album) => album.id, "klassiek_gewichten");
+    huidigKlassiek = albums[i];
+    klassiekRang.textContent = "#" + (i + 1);
     klassiekPick.innerHTML = '<span class="ttl"></span><span class="art"></span>';
     klassiekPick.querySelector(".ttl").textContent = huidigKlassiek.t;
     klassiekPick.querySelector(".art").textContent = huidigKlassiek.a ? "  —  " + huidigKlassiek.a : "";
