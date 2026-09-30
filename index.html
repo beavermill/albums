@@ -119,7 +119,7 @@
 
     <div class="setup" id="setup"></div>
 
-    <div class="bron">1000 albums &middot; willekeur via crypto.getRandomValues &middot; v<span id="versie">2026-09-30 11:44</span></div>
+    <div class="bron">1000 albums &middot; willekeur via crypto.getRandomValues &middot; v<span id="versie">2026-09-30 11:58</span></div>
   </div>
 
 <script>
@@ -459,7 +459,7 @@
       if (!regel.startsWith("[")) continue;
       const m = regel.match(regelRegex);
       if (!m) continue;
-      const artiesten = Array.from(m[3].matchAll(artiestRegex), (x) => x[1]).join(", ");
+      const artiesten = Array.from(m[3].matchAll(artiestRegex), (x) => x[1]).join(", ") || m[3].trim();
       albums.push({ id: m[2], t: m[1], a: artiesten });
     }
     return albums;
